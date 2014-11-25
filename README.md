@@ -43,13 +43,13 @@ Preferred way to install this extension is through [composer](http://getcomposer
 Either run
 
 ```
-php composer.phar require --prefer-dist omgdef/yii2-multilingual-behavior "*"
+php composer.phar require --prefer-dist claudejanz/yii2-multilingual-localised-behavior "*"
 ```
 
 or add
 
 ```
-"omgdef/yii2-multilingual-behavior": "*"
+"claudejanz/yii2-multilingual-localised-behavior": "*"
 ```
 
 to the require section of your `composer.json` file.
