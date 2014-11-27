@@ -1,6 +1,7 @@
 <?php
 namespace claudejanz\multilingual;
 
+use Yii;
 use yii\db\ActiveQuery;
 
 class MultilingualQuery extends ActiveQuery
@@ -15,13 +16,13 @@ class MultilingualQuery extends ActiveQuery
      * @param $language
      * @return ActiveQuery
      */
-    public function localized($language = null)
+    public function localised($language = null)
     {
         if (!$language)
             $language = Yii::$app->language;
 
         $this->with(['translation' => function ($query) use ($language) {
-            $query->andWhere([$this->languageField => substr($language, 0, 2)]);
+            $query->andWhere([$this->languageField => $language]);
         }]);
         return $this;
     }
