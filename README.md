@@ -99,15 +99,13 @@ public function behaviors()
         'ml' => [
             'class' => MultilingualBehavior::className(),
             'languages' => [
-                'ru' => 'Russian',
+                'fr' => 'French',
                 'en-US' => 'English',
             ],
-            //'languageField' => 'language',
-            //'localizedPrefix' => '',
-            //'forceOverwrite' => false',
-            //'dynamicLangClass' => true',
-            //'langClassName' => PostLang::className(), // or namespace/for/a/class/PostLang
-            'defaultLanguage' => 'ru',
+            'languageField' => 'language',
+            
+            'langClassName' => PostLang::className(),
+            'defaultLanguage' => 'fr',
             'langForeignKey' => 'post_id',
             'tableName' => "{{%postLang}}",
             'attributes' => [
@@ -119,15 +117,11 @@ public function behaviors()
 ```
 
 Behavior attributes:
-* languageField The name of the language field of the translation table. Default is 'language'.
-* localizedPrefix The prefix of the localized attributes in the lang table. Is used to avoid collisions in queries. The columns in the translation table corresponding to the localized attributes have to be name like this: '[prefix]_[name of the attribute]' and the id column (primary key) like this : '[prefix]_id'
-* forceOverwrite Whether to force overwrite of the default language value with translated value even if it is empty.
-* dynamicLangClass Whether to dynamically create translation model class. If true, the translation model class will be generated on runtime with the use of the eval() function so no additionnal php file is needed.
-* langClassName The name of translation model class. (required if dynamicLangClass === false)
 * languages Available languages. It can be a simple array: array('fr', 'en') or an associative array: array('fr' => 'Français', 'en' => 'English') (required)
+* languageField The name of the language field of the translation table. Default is 'language'.
+* langClassName The name of translation model class. (required)
 * defaultLanguage The default language. (required)
 * langForeignKey The name of the foreign key field of the translation table related to base model table. (required)
-* tableName The name of the translation table (required)
 * attributes Multilingual attributes (required)
 
 Then you have to overwrite the `find()` method in your model
@@ -150,18 +144,7 @@ Add this function to the model class to retrieve translated models by default:
     }
 ```
 
-As this behavior has ```MultilingualTrait```, you can use it in your query classes
 
-```php
-namespace app\models;
-
-use yii\db\ActiveQuery;
-
-class MultilingualQuery extends ActiveQuery
-{
-    use MultilingualTrait;
-}
-```
 
 Form example:
 ```php

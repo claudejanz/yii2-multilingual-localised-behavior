@@ -71,25 +71,29 @@ class MultilingualBehavior extends Behavior {
      * @param $language
      * @return ActiveQuery
      */
-    public function getTranslation($language = null) {
+    public function getTranslation() {
         /* @var $model ActiveRecord */
         $model = $this->owner;
-        $language = $language ? $language : $this->_currentLanguage;
-        return $model->hasOne($this->langClassName, [$this->langForeignKey => join(',', $model->primaryKey())])->where([$this->languageField => $language]);
+        return $model->hasOne($this->langClassName, [$this->langForeignKey => join(',', $model->primaryKey())]);
     }
 
     public function setLanguage($language) {
+        $model = $this->owner;
         if (in_array($language, $this->languages)) {
-            
+            $translation = $this->getTranslation()->where([$this->languageField => $language])->one();
             foreach ($this->attributes as $attribute) {
                 if (isset($model->$attribute)) {
                     $model->{$attribute . '_' . $this->_currentLanguage} = $model->$attribute;
                 }
                 if (isset($model->{$attribute . '_' . $language})) {
                     $model->$attribute = $model->{$attribute . '_' . $language};
+                } elseif (isset($translation[$attribute])) {
+                    $model->$attribute = $translation[$attribute];
                 }
             }
             $this->_currentLanguage = $language;
+            $this->currentLanguageToModel();
+
             return true;
         }
         return false;
@@ -103,8 +107,10 @@ class MultilingualBehavior extends Behavior {
             ActiveRecord::EVENT_INIT => 'afterInit',
             ActiveRecord::EVENT_AFTER_FIND => 'afterFind',
             ActiveRecord::EVENT_BEFORE_VALIDATE => 'beforeValidate',
-            ActiveRecord::EVENT_AFTER_UPDATE => 'afterUpdate',
+            ActiveRecord::EVENT_BEFORE_INSERT => 'beforeInsert',
+            ActiveRecord::EVENT_BEFORE_UPDATE => 'beforeUpdate',
             ActiveRecord::EVENT_AFTER_INSERT => 'afterInsert',
+            ActiveRecord::EVENT_AFTER_UPDATE => 'afterUpdate',
         ];
     }
 
@@ -112,9 +118,7 @@ class MultilingualBehavior extends Behavior {
      * Handle 'afterInit' event of the owner.
      */
     public function afterInit() {
-        var_dump('init ' . get_class($this));
         if (!$this->_isConfigured) {
-            var_dump('configure ' . get_class($this));
             /* @var $model ActiveRecord */
             $model = $this->owner;
             if (!$this->languages || !is_array($this->languages)) {
@@ -161,17 +165,16 @@ class MultilingualBehavior extends Behavior {
      * Handle 'afterFind' event of the owner.
      */
     public function afterFind() {
-        var_dump('find ' . get_class($this));
         /* @var $model ActiveRecord */
         $model = $this->owner;
-//        var_dump($model->isRelationPopulated('translations'));
-//        var_dump($model->isRelationPopulated('translation'));
         if ($model->isRelationPopulated('translations')) {
             $translations = $model->translations;
             $validators = $model->getValidators();
-            //var_dump($model->getValidators());
             foreach ($translations as $key => $translation) {
                 /* @var $translation ActiveRecord */
+                if ($key == $this->_currentLanguage && !$model->isRelationPopulated('translation')) {
+                    $model->populateRelation('translation', $translation);
+                }
                 foreach ($translation->attributes() as $attribute) {
                     if (in_array($attribute, $this->attributes)) {
                         $model->setLangAttribute($attribute . '_' . $key, $translation->$attribute);
@@ -181,6 +184,7 @@ class MultilingualBehavior extends Behavior {
             }
         }
         if ($model->isRelationPopulated('translation')) {
+
             $related = $model->getRelatedRecords();
             if ($related['translation']) {
                 $translation = $related['translation'];
@@ -205,21 +209,16 @@ class MultilingualBehavior extends Behavior {
 
             $rules = $model->rules();
             $validators = $model->getValidators();
-//       
             foreach ($rules as $rule) {
                 if (is_array($rule[0])) {
                     $rule_attributes = $rule[0];
                 } else {
                     $rule_attributes = array_map('trim', explode(',', $rule[0]));
                 }
-                //if (!in_array($rule[1], $this->_excludedValidators)) {
                 foreach ($rule_attributes as $attribute) {
                     if (in_array($attribute, $this->attributes)) {
                         foreach ($this->languages as $language) {
-
-
                             if ($rule[1] !== 'required') {
-
                                 $validators[] = Validator::createValidator($rule[1], $model, $attribute . '_' . $language, array_slice($rule, 2));
                             } elseif ($rule[1] === 'required') {
                                 //We add a safe rule in case the attribute has a 'required' validation rule assigned
@@ -227,15 +226,25 @@ class MultilingualBehavior extends Behavior {
                                 $validators[] = Validator::createValidator('safe', $model, $attribute . '_' . $language, array_slice($rule, 2));
                             }
                         }
-                        //}
                     }
                 }
             }
             $this->_hasLangRules = true;
         }
-        if ($this->_currentLanguage != $this->defaultLanguage) {
-            foreach ($this->attributes as $attribute) {
+    }
 
+    public function beforeInsert() {
+        $this->defaultLanguageToModel();
+    }
+
+    public function beforeUpdate() {
+        $this->defaultLanguageToModel();
+    }
+
+    private function defaultLanguageToModel() {
+        if ($this->_currentLanguage != $this->defaultLanguage) {
+            $model = $this->owner;
+            foreach ($this->attributes as $attribute) {
                 if (isset($model->$attribute)) {
                     $model->{$attribute . '_' . $this->_currentLanguage} = $model->$attribute;
                 }
@@ -244,16 +253,31 @@ class MultilingualBehavior extends Behavior {
                 }
             }
         }
-
     }
 
-   
+    private function currentLanguageToModel() {
+        if ($this->_currentLanguage != $this->defaultLanguage) {
+            $translation = $this->getTranslation()->where([$this->languageField => $this->_currentLanguage])->one();
+            $model = $this->owner;
+            foreach ($this->attributes as $attribute) {
+                if (isset($model->{$attribute . '_' . $this->_currentLanguage})) {
+                    $model->$attribute = $model->{$attribute . '_' . $this->_currentLanguage};
+                } elseif (isset($translation[$attribute])) {
+                    $model->$attribute = $translation[$attribute];
+                }
+            }
+            
+                $model->populateRelation('translation', $translation);
+            
+        }
+    }
 
     /**
      * Handle 'afterInsert' event of the owner.
      */
     public function afterInsert() {
         $this->saveTranslations();
+        $this->currentLanguageToModel();
     }
 
     /**
@@ -268,12 +292,12 @@ class MultilingualBehavior extends Behavior {
             $translations = $model->getRelatedRecords()['translations'];
         }
         $this->saveTranslations($translations);
+        $this->currentLanguageToModel();
     }
-    
+
     /**
      * Invoked form 'afterUpdate' and 'afterInsert'.
      */
-
     private function saveTranslations($translations = []) {
         /** @var ActiveRecord $model */
         $model = $this->owner;
@@ -281,12 +305,14 @@ class MultilingualBehavior extends Behavior {
         foreach ($this->languages as $lang) {
             $isCurrentLanguage = $lang == $this->_currentLanguage;
 
-            if (!isset($translations[$lang])) {
+            if (isset($translations[$lang])) {
+                $translation = $translations[$lang];
+            } elseif (isset($model->translation)) {
+                $translation = $model->translation;
+            } else {
                 $translation = new $this->langClassName;
                 $translation->{$this->languageField} = $lang;
                 $translation->{$this->langForeignKey} = $model->getPrimaryKey();
-            } else {
-                $translation = $translations[$lang];
             }
             $hasToBeSaved = false;
             foreach ($this->attributes as $attribute) {

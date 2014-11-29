@@ -20,9 +20,9 @@ class MultilingualQuery extends ActiveQuery
     {
         if (!$language)
             $language = Yii::$app->language;
-
         $this->with(['translation' => function ($query) use ($language) {
             $query->andWhere([$this->languageField => $language]);
+            
         }]);
         return $this;
     }
