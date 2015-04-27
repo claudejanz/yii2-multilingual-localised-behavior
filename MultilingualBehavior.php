@@ -98,6 +98,10 @@ class MultilingualBehavior extends Behavior {
         }
         return false;
     }
+    
+    public function getLanguage() {
+        return $this->_currentLanguage;
+    }
 
     /**
      * @inheritdoc
@@ -218,7 +222,7 @@ class MultilingualBehavior extends Behavior {
                 foreach ($rule_attributes as $attribute) {
                     if (in_array($attribute, $this->attributes)) {
                         foreach ($this->languages as $language) {
-                            if ($rule[1] !== 'required') {
+                            if ($rule[1] !== 'required' && $rule[1]!=='unique') {
                                 $validators[] = Validator::createValidator($rule[1], $model, $attribute . '_' . $language, array_slice($rule, 2));
                             } elseif ($rule[1] === 'required') {
                                 //We add a safe rule in case the attribute has a 'required' validation rule assigned
@@ -331,7 +335,7 @@ class MultilingualBehavior extends Behavior {
                 }
             }
             if ($hasToBeSaved) {
-                $translation->save(false);
+                $translation->save();
                 $translations[$lang] = $translation;
             }
         }
